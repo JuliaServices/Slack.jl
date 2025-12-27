@@ -95,6 +95,52 @@ end
     end
 end
 
+@testset "Stream Mode Integration" begin
+    token = getenv_str("SLACK_BOT_TOKEN")
+    channel = getenv_str("SLACK_TEST_CHANNEL")
+    recipient_team_id = getenv_str("SLACK_STREAM_RECIPIENT_TEAM_ID")
+    recipient_user_id = getenv_str("SLACK_STREAM_RECIPIENT_USER_ID")
+    if token === nothing || channel === nothing || recipient_team_id === nothing || recipient_user_id === nothing
+        @info "Skipping Stream Mode integration tests (set SLACK_BOT_TOKEN, SLACK_TEST_CHANNEL, SLACK_STREAM_RECIPIENT_TEAM_ID, SLACK_STREAM_RECIPIENT_USER_ID)."
+        return
+    end
+
+    client = WebClient(token=token)
+    parent_ts = nothing
+    stream_ts = nothing
+    try
+        parent = Slack.chat_post_message(client; channel=channel, text="stream parent $(time_ns())")
+        parent_ts = get(() -> nothing, parent, "ts")
+        if parent_ts === nothing
+            message = parent["message"]
+            parent_ts = get(() -> nothing, message, "ts")
+        end
+        @test parent_ts isa AbstractString
+
+        stream = Slack.chat_stream(
+            client;
+            channel=channel,
+            thread_ts=parent_ts,
+            recipient_team_id=recipient_team_id,
+            recipient_user_id=recipient_user_id,
+            buffer_size=8,
+        )
+        @test Slack.append!(stream; markdown_text="Hello ") === nothing
+        response = Slack.append!(stream; markdown_text="world")
+        @test response isa SlackResponse
+        stop_response = Slack.stop!(stream; markdown_text="!")
+        @test Slack.is_ok(stop_response)
+        stream_ts = stream.stream_ts
+    finally
+        if stream_ts !== nothing
+            Slack.chat_delete(client; channel=channel, ts=stream_ts)
+        end
+        if parent_ts !== nothing
+            Slack.chat_delete(client; channel=channel, ts=parent_ts)
+        end
+    end
+end
+
 @testset "Webhook Integration" begin
     url = getenv_str("SLACK_WEBHOOK_URL")
     if url === nothing

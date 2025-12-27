@@ -17,6 +17,7 @@ include("models/messages.jl")
 include("web/slack_response.jl")
 include("web/base_client.jl")
 include("web/client.jl")
+include("web/chat_stream.jl")
 
 include("webhook/webhook_response.jl")
 include("webhook/client.jl")
@@ -27,6 +28,7 @@ include("socket_mode/client.jl")
 
 export SDK_VERSION
 export WebClient, WebhookClient, SocketModeClient
+export ChatStream
 export SlackResponse, WebhookResponse
 export SocketModeRequest, SocketModeResponse
 export Attachment, AttachmentField, Message, ThreadReply, Conversation

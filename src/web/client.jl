@@ -110,6 +110,90 @@ function chat_post_ephemeral(client::WebClient;
     return api_call(client, "chat.postEphemeral"; json=payload)
 end
 
+function chat_start_stream(client::WebClient;
+    channel::AbstractString,
+    thread_ts::AbstractString,
+    markdown_text::Union{Nothing, AbstractString}=nothing,
+    recipient_team_id::Union{Nothing, AbstractString}=nothing,
+    recipient_user_id::Union{Nothing, AbstractString}=nothing,
+    token=nothing,
+    kwargs...,
+)
+    payload = Dict{String, Any}(
+        "channel" => String(channel),
+        "thread_ts" => String(thread_ts),
+    )
+    add_if!(payload, "markdown_text", markdown_text)
+    add_if!(payload, "recipient_team_id", recipient_team_id)
+    add_if!(payload, "recipient_user_id", recipient_user_id)
+    for (k, v) in kwargs
+        add_if!(payload, string(k), v)
+    end
+    return api_call(client, "chat.startStream"; json=payload, token=token)
+end
+
+function chat_append_stream(client::WebClient;
+    channel::AbstractString,
+    ts::AbstractString,
+    markdown_text::AbstractString,
+    token=nothing,
+    kwargs...,
+)
+    payload = Dict{String, Any}(
+        "channel" => String(channel),
+        "ts" => String(ts),
+        "markdown_text" => String(markdown_text),
+    )
+    for (k, v) in kwargs
+        add_if!(payload, string(k), v)
+    end
+    return api_call(client, "chat.appendStream"; json=payload, token=token)
+end
+
+function chat_stop_stream(client::WebClient;
+    channel::AbstractString,
+    ts::AbstractString,
+    markdown_text::Union{Nothing, AbstractString}=nothing,
+    blocks=nothing,
+    metadata=nothing,
+    token=nothing,
+    kwargs...,
+)
+    payload = Dict{String, Any}(
+        "channel" => String(channel),
+        "ts" => String(ts),
+    )
+    add_if!(payload, "markdown_text", markdown_text)
+    add_if!(payload, "blocks", blocks)
+    add_if!(payload, "metadata", metadata)
+    for (k, v) in kwargs
+        add_if!(payload, string(k), v)
+    end
+    return api_call(client, "chat.stopStream"; json=payload, token=token)
+end
+
+function chat_stream(client::WebClient;
+    buffer_size::Integer=256,
+    channel::AbstractString,
+    thread_ts::AbstractString,
+    recipient_team_id::Union{Nothing, AbstractString}=nothing,
+    recipient_user_id::Union{Nothing, AbstractString}=nothing,
+    token=nothing,
+    kwargs...,
+)
+    return ChatStream(
+        client;
+        channel=channel,
+        thread_ts=thread_ts,
+        recipient_team_id=recipient_team_id,
+        recipient_user_id=recipient_user_id,
+        buffer_size=buffer_size,
+        token=token,
+        logger=client.logger,
+        kwargs...,
+    )
+end
+
 function conversations_history(client::WebClient;
     channel::AbstractString,
     cursor::Union{Nothing, AbstractString}=nothing,

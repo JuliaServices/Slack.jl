@@ -46,6 +46,18 @@ function Base.get(resp::SlackResponse, key::Symbol, default=nothing)
     return get(() -> default, data, string(key))
 end
 
+function Base.get(f::Function, resp::SlackResponse, key::AbstractString)
+    data = resp.data
+    data isa AbstractDict || return f()
+    return get(f, data, key)
+end
+
+function Base.get(f::Function, resp::SlackResponse, key::Symbol)
+    data = resp.data
+    data isa AbstractDict || return f()
+    return get(f, data, string(key))
+end
+
 function is_ok(resp::SlackResponse)
     data = resp.data
     data isa AbstractDict || return false

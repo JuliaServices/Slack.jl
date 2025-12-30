@@ -13,6 +13,7 @@ include("utils.jl")
 
 include("models/attachments.jl")
 include("models/messages.jl")
+include("models/events.jl")
 
 include("web/slack_response.jl")
 include("web/base_client.jl")
@@ -32,6 +33,7 @@ export ChatStream
 export SlackResponse, WebhookResponse
 export SocketModeRequest, SocketModeResponse
 export Attachment, AttachmentField, Message, ThreadReply, Conversation
+export SlackAppMentionEvent, SlackMessageEvent, SlackEventsApiPayload
 export SlackClientError, SlackRequestError, SlackApiError, SlackTokenRotationError
 export SlackClientNotConnectedError, SlackObjectFormationError, SlackClientConfigurationError
 export BotUserAccessError

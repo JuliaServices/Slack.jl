@@ -6,7 +6,7 @@ using Logging
 @testset "Models" begin
     attachment = Attachment(text="hello", markdown_in=["text"])
     encoded = JSON.json(attachment)
-    decoded = JSON.parse(encoded)
+    decoded = JSON.parse(encoded, JSON.Object)
     @test decoded["text"] == "hello"
     @test decoded["mrkdwn_in"] == ["text"]
 end
@@ -196,5 +196,5 @@ end
     end
 
     Slack.close!(socket_client)
-    @test wait_for(() -> istaskdone(task); timeout=5.0)
+    @test wait_for(() -> !Slack.is_connected(socket_client); timeout=5.0)
 end

@@ -157,3 +157,14 @@ function flush_buffer!(stream::ChatStream; token=nothing, kwargs...)
     stream.buffer = ""
     return response
 end
+
+function ChatStream(f::Function, client::WebClient; kwargs...)
+    stream = ChatStream(client; kwargs...)
+    try
+        f(stream)
+    finally
+        if stream.state != "completed"
+            stop!(stream)
+        end
+    end
+end

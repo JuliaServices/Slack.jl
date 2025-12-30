@@ -185,7 +185,7 @@ end
 function parse_response_body(headers::Dict{String, String}, body::AbstractVector{UInt8})
     if should_parse_json(headers, body)
         try
-            return JSON.parse(body)
+            return JSON.parse(body, JSON.Object)
         catch err
             message = "Unexpected response body: $(String(body))"
             return JSON.Object("ok" => false, "error" => message)

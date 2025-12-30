@@ -107,14 +107,14 @@ end
 function handle_socket_message(client::SocketModeClient, raw_message::AbstractString)
     message = nothing
     try
-        message = JSON.parse(raw_message)
+        message = JSON.parse(raw_message, JSON.Object)
     catch
         return
     end
 
-    if message isa AbstractDict && get(() -> nothing, message, "type") == "disconnect"
+    if get(() -> nothing, message, "type") == "disconnect"
         if client.auto_reconnect
-            @async reconnect!(client)
+            Threads.@spawn reconnect!(client)
         end
         return
     end
@@ -130,7 +130,7 @@ function handle_socket_message(client::SocketModeClient, raw_message::AbstractSt
     if !isempty(client.request_listeners)
         request = nothing
         try
-            request = JSON.parse(raw_message, SocketModeRequest)
+            request = parse_socket_mode_request(raw_message)
         catch err
             @error "Failed to parse Socket Mode request" exception=(err, catch_backtrace())
         end
@@ -175,7 +175,7 @@ function run!(client::SocketModeClient)
 end
 
 function start!(client::SocketModeClient)
-    client.runner = @async run_socket_mode(client)
+    client.runner = Threads.@spawn run_socket_mode(client)
     return client.runner
 end
 
@@ -202,4 +202,37 @@ end
 
 function close!(client::SocketModeClient)
     return disconnect!(client)
+end
+
+function SocketModeClient(f::Function, app_token::AbstractString; kwargs...)
+    client = SocketModeClient(app_token; kwargs...)
+    try
+        f(client)
+    finally
+        close!(client)
+    end
+    return nothing
+end
+
+"""
+    run!(f, app_token; kwargs...)
+
+Run a socket mode client with `f` as the request handler.
+
+This is a convenience method that creates a client, adds `f` as a request listener,
+runs the client (blocking), and closes it when done.
+
+# Example
+```julia
+Slack.run!(app_token; web_client=web_client) do client, request
+    Slack.ack!(client, request)
+    # handle request.payload
+end
+```
+"""
+function run!(f::Function, app_token::AbstractString; kwargs...)
+    SocketModeClient(app_token; kwargs...) do client
+        add_request_listener!(client, f)
+        run!(client)
+    end
 end

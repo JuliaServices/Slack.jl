@@ -109,16 +109,9 @@ function handle_socket_message(client::SocketModeClient, raw_message::AbstractSt
     try
         message = JSON.parse(raw_message, JSON.Object)
     catch
-        return
+        return false
     end
-
-    if get(() -> nothing, message, "type") == "disconnect"
-        if client.auto_reconnect
-            Threads.@spawn reconnect!(client)
-        end
-        return
-    end
-
+    get(() -> nothing, message, "type") == "disconnect" && return true
     for listener in client.message_listeners
         try
             listener(client, message, raw_message)
@@ -126,7 +119,6 @@ function handle_socket_message(client::SocketModeClient, raw_message::AbstractSt
             @error "Failed to run a message listener" exception=(err, catch_backtrace())
         end
     end
-
     if !isempty(client.request_listeners)
         request = nothing
         try
@@ -144,29 +136,42 @@ function handle_socket_message(client::SocketModeClient, raw_message::AbstractSt
             end
         end
     end
+    return false
 end
 
 function run_socket_mode(client::SocketModeClient)
-    lock(client.connect_lock)
-    try
-        client.wss_url = issue_new_wss_url(client)
-        client.closed = false
-    finally
-        unlock(client.connect_lock)
-    end
-
-    HTTP.WebSockets.open(client.wss_url; proxy=client.web_client.proxy) do ws
-        client.ws = ws
-        for msg in ws
-            raw_message = msg isa AbstractVector{UInt8} ? String(msg) : String(msg)
-            handle_socket_message(client, raw_message)
-            if client.closed
-                break
-            end
+    while true
+        client.closed && break
+        lock(client.connect_lock)
+        try
+            client.wss_url = issue_new_wss_url(client)
+            client.closed = false
+        finally
+            unlock(client.connect_lock)
         end
+        try
+            HTTP.WebSockets.open(client.wss_url; proxy=client.web_client.proxy) do ws
+                client.ws = ws
+                for msg in ws
+                    raw_message = msg isa AbstractVector{UInt8} ? String(msg) : String(msg)
+                    handle_socket_message(client, raw_message) && break
+                    client.closed && break
+                end
+            end
+        catch err
+            client.closed && return nothing
+            if client.auto_reconnect
+                @warn "Socket Mode connection dropped; reconnecting" exception=(err, catch_backtrace())
+            else
+                rethrow()
+            end
+        finally
+            client.ws = nothing
+        end
+        client.closed && break
+        client.auto_reconnect || break
+        sleep(1)
     end
-
-    client.ws = nothing
     return nothing
 end
 
